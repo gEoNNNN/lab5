@@ -9,22 +9,33 @@ const rl = readline.createInterface({
     prompt: 'cmd> '
 });
 
-// Function to fetch and print content from a URL
+// Function to strip HTML tags from text
+function stripHtml(html) {
+    return html
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '') // Remove scripts
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')   // Remove styles
+        .replace(/<[^>]+>/g, '')                             // Remove all HTML tags
+        .replace(/\s{2,}/g, ' ')                             // Collapse extra spaces
+        .trim();
+}
+
+// Function to fetch and print plain text from a URL
 function fetchUrl(url) {
     const client = url.startsWith('https') ? https : http;
 
     client.get(url, (res) => {
         const chunks = [];
 
-        // Collect data chunks
         res.on('data', (chunk) => {
             chunks.push(chunk);
         });
 
-        // When all data is received
         res.on('end', () => {
-            const result = Buffer.concat(chunks).toString();
-            console.log(result);
+            const html = Buffer.concat(chunks).toString();
+            const plainText = stripHtml(html);
+            console.log('\n=== Human-readable Content ===\n');
+            console.log(plainText);
+            console.log('\n=== End of Content ===\n');
         });
 
     }).on('error', (err) => {
