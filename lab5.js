@@ -1,64 +1,101 @@
 const https = require('https');
 const http = require('http');
 const readline = require('readline');
+const cheerio = require('cheerio');
 
-// Set up command-line interface
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: 'cmd> '
 });
 
-// Function to strip HTML tags from text
-function stripHtml(html) {
-    return html
-        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '') // Remove scripts
-        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')   // Remove styles
-        .replace(/<[^>]+>/g, '')                             // Remove all HTML tags
-        .replace(/\s{2,}/g, ' ')                             // Collapse extra spaces
-        .trim();
-}
+const HELP_TEXT = `
+Commands:
+  go2web -u <URL>         # make an HTTP request to the specified URL and print the response
+  go2web -s <search-term> # search Bing and print top 10 results
+  go2web -h               # show this help
+`;
 
-// Function to fetch and print plain text from a URL
-function fetchUrl(url) {
+function fetchUrl(url, callback) {
     const client = url.startsWith('https') ? https : http;
-
     client.get(url, (res) => {
-        const chunks = [];
-
-        res.on('data', (chunk) => {
-            chunks.push(chunk);
-        });
-
-        res.on('end', () => {
-            const html = Buffer.concat(chunks).toString();
-            const plainText = stripHtml(html);
-            console.log('\n=== Human-readable Content ===\n');
-            console.log(plainText);
-            console.log('\n=== End of Content ===\n');
-        });
-
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => callback(null, data));
     }).on('error', (err) => {
-        console.error('Error:', err.message);
+        callback(err);
     });
 }
 
-// Initial message
-console.log('Enter commands (e.g., go2web -u <URL>). Type "exit" to quit.');
+// Simple function to clean text from HTML tags (basic)
+function stripHtml(html) {
+    return html.replace(/<[^>]*>?/gm, '').trim();
+}
+
+// Function to search Bing and print top 10 results
+function searchBing(term) {
+    const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(term)}`;
+
+    fetchUrl(searchUrl, (err, data) => {
+        if (err) {
+            console.error('Error fetching search results:', err.message);
+            return;
+        }
+
+        const $ = cheerio.load(data);
+        const results = [];
+
+        $('li.b_algo').each((i, el) => {
+            if (i >= 10) return false; // limit to top 10
+
+            const anchor = $(el).find('h2 a');
+            const title = anchor.text().trim();
+            const link = anchor.attr('href');
+
+            if (title && link) {
+                results.push({ title, link });
+            }
+        });
+
+        if (results.length === 0) {
+            console.log('No results found.');
+            return;
+        }
+
+        results.forEach((res, i) => {
+            console.log(`${i + 1}. ${res.title}\n   ${res.link}`);
+        });
+    });
+}
+
+console.log(HELP_TEXT);
 rl.prompt();
 
-// Handle user input
 rl.on('line', (line) => {
     const args = line.trim().split(' ');
-
     if (args[0] === 'exit') {
         rl.close();
     } else if (args[0] === 'go2web' && args[1] === '-u' && args[2]) {
-        fetchUrl(args[2]);
+        fetchUrl(args[2], (err, data) => {
+            if (err) {
+                console.error('Error:', err.message);
+            } else {
+                // Basic strip HTML tags to print readable text
+                console.log(stripHtml(data));
+            }
+            rl.prompt();
+        });
+        return; // avoid double prompt
+    } else if (args[0] === 'go2web' && args[1] === '-s' && args.length > 2) {
+        const searchTerm = args.slice(2).join(' ');
+        searchBing(searchTerm);
+        rl.prompt();
+        return;
+    } else if (args[0] === 'go2web' && args[1] === '-h'){
+        console.log(HELP_TEXT);
     } else {
-        console.log('Unknown command. Try: go2web -u <URL>');
+        console.log('Invalid command. Type "go2web -h" for help.');
     }
-
     rl.prompt();
 }).on('close', () => {
     console.log('Goodbye!');
