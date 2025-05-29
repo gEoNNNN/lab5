@@ -3,6 +3,8 @@ const http = require('http');
 const readline = require('readline');
 const cheerio = require('cheerio');
 const { exec } = require('child_process');
+const fs = require('fs');
+const CACHE_FILE = 'cache.json';
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -20,14 +22,16 @@ Commands:
 function fetchUrl(url, callback, redirectCount = 0) {
     const MAX_REDIRECTS = 5;
     const client = url.startsWith('https') ? https : http;
-    client.get(url, (res) => {
+    const options = new URL(url);
+    options.headers = { 'Accept': 'application/json, text/html;q=0.9' };
+
+    client.get(options, (res) => {
         // Handle redirects (3xx status codes)
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
             if (redirectCount >= MAX_REDIRECTS) {
                 callback(new Error('Too many redirects'));
                 return;
             }
-            // Some redirects may provide a relative URL
             const newUrl = res.headers.location.startsWith('http')
                 ? res.headers.location
                 : new URL(res.headers.location, url).toString();
@@ -37,14 +41,19 @@ function fetchUrl(url, callback, redirectCount = 0) {
 
         let data = '';
         res.on('data', chunk => data += chunk);
-        res.on('end', () => callback(null, data));
+        res.on('end', () => callback(null, data, res.headers['content-type']));
     }).on('error', (err) => {
         callback(err);
     });
 }
 
-// Simple function to clean text from HTML tags (basic)
+// Simple function to clean text from HTML tags and CSS
 function stripHtml(html) {
+    // Remove <style>...</style> blocks
+    html = html.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '');
+    // Remove inline style attributes
+    html = html.replace(/\s*style="[^"]*"/gi, '');
+    // Remove all HTML tags
     return html.replace(/<[^>]*>?/gm, '').trim();
 }
 
@@ -105,6 +114,20 @@ function openInBrowser(url) {
     exec(`start "" "${url}"`);
 }
 
+// Helper to load cache
+function loadCache() {
+    try {
+        return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
+    } catch {
+        return {};
+    }
+}
+
+// Helper to save cache
+function saveCache(cache) {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf-8');
+}
+
 console.log(HELP_TEXT);
 rl.prompt();
 
@@ -130,11 +153,30 @@ rl.on('line', (line) => {
     if (args[0] === 'exit') {
         rl.close();
     } else if (args[0] === 'go2web' && args[1] === '-u' && args[2]) {
-        fetchUrl(args[2], (err, data) => {
+        const url = args[2];
+        const cache = loadCache();
+        if (cache[url]) {
+            console.log(cache[url]);
+            rl.prompt();
+            return;
+        }
+        fetchUrl(url, (err, data, contentType) => {
             if (err) {
                 console.error('Error:', err.message);
             } else {
-                console.log(stripHtml(data));
+                let output;
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        output = JSON.stringify(JSON.parse(data), null, 2);
+                    } catch {
+                        output = data;
+                    }
+                } else {
+                    output = stripHtml(data);
+                }
+                console.log(output);
+                cache[url] = output;
+                saveCache(cache);
             }
             rl.prompt();
         });

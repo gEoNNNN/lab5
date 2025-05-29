@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // This file contains the main logic for the command line program.
 
 const https = require('https');

@@ -1,0 +1,4 @@
+{
+  "https://example.com/": "Example Domain\n\n    \n    \n    \n        \n\n\n\n\n    Example Domain\n    This domain is for use in illustrative examples in documents. You may use this\n    domain in literature without prior coordination or asking for permission.\n    More information...",
+  "https://jsonplaceholder.typicode.com/todos/1": "{\n  \"userId\": 1,\n  \"id\": 1,\n  \"title\": \"delectus aut autem\",\n  \"completed\": false\n}"
+}
