@@ -32,7 +32,7 @@ function stripHtml(html) {
     return html.replace(/<[^>]*>?/gm, '').trim();
 }
 
-// Function to search Bing and print top 10 results
+// Function to search Bing and print top 10 unique https links excluding bing.com
 function searchBing(term) {
     const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(term)}`;
 
@@ -43,16 +43,24 @@ function searchBing(term) {
         }
 
         const $ = cheerio.load(data);
+        const uniqueLinks = new Set();
         const results = [];
 
         $('li.b_algo').each((i, el) => {
-            if (i >= 10) return false; // limit to top 10
+            if (results.length >= 10) return false; // limit to top 10 unique links
 
             const anchor = $(el).find('h2 a');
             const title = anchor.text().trim();
             const link = anchor.attr('href');
 
-            if (title && link) {
+            if (
+                title &&
+                link &&
+                link.startsWith('https:') &&
+                !link.includes('bing.com') &&
+                !uniqueLinks.has(link)
+            ) {
+                uniqueLinks.add(link);
                 results.push({ title, link });
             }
         });

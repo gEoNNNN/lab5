@@ -1,0 +1,22 @@
+{
+  "name": "go2web",
+  "version": "1.0.0",
+  "description": "A command line program for making HTTP requests and searching terms using a search engine.",
+  "main": "src/go2web.js",
+  "scripts": {
+    "start": "node src/go2web.js"
+  },
+  "dependencies": {
+    "axios": "^0.21.1",
+    "cheerio": "^1.0.0-rc.10",
+    "commander": "^8.0.0"
+  },
+  "keywords": [
+    "http",
+    "request",
+    "cli",
+    "search"
+  ],
+  "author": "Eugen Ostafi",
+  "license": "MIT"
+}
