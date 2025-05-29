@@ -2,6 +2,7 @@ const https = require('https');
 const http = require('http');
 const readline = require('readline');
 const cheerio = require('cheerio');
+const { exec } = require('child_process');
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -16,9 +17,24 @@ Commands:
   go2web -h               # show this help
 `;
 
-function fetchUrl(url, callback) {
+function fetchUrl(url, callback, redirectCount = 0) {
+    const MAX_REDIRECTS = 5;
     const client = url.startsWith('https') ? https : http;
     client.get(url, (res) => {
+        // Handle redirects (3xx status codes)
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            if (redirectCount >= MAX_REDIRECTS) {
+                callback(new Error('Too many redirects'));
+                return;
+            }
+            // Some redirects may provide a relative URL
+            const newUrl = res.headers.location.startsWith('http')
+                ? res.headers.location
+                : new URL(res.headers.location, url).toString();
+            fetchUrl(newUrl, callback, redirectCount + 1);
+            return;
+        }
+
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => callback(null, data));
@@ -32,6 +48,8 @@ function stripHtml(html) {
     return html.replace(/<[^>]*>?/gm, '').trim();
 }
 
+let lastResults = []; // Store last search results
+
 // Function to search Bing and print top 10 unique https links excluding bing.com
 function searchBing(term) {
     const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(term)}`;
@@ -39,6 +57,7 @@ function searchBing(term) {
     fetchUrl(searchUrl, (err, data) => {
         if (err) {
             console.error('Error fetching search results:', err.message);
+            lastResults = [];
             return;
         }
 
@@ -67,13 +86,23 @@ function searchBing(term) {
 
         if (results.length === 0) {
             console.log('No results found.');
+            lastResults = [];
             return;
         }
+
+        lastResults = results; // Save results for later access
 
         results.forEach((res, i) => {
             console.log(`${i + 1}. ${res.title}\n   ${res.link}`);
         });
+
+        console.log('\nEnter a number (1-10) to open a link, or another command:');
     });
+}
+
+function openInBrowser(url) {
+    // Windows: use 'start "" "<url>"'
+    exec(`start "" "${url}"`);
 }
 
 console.log(HELP_TEXT);
@@ -81,6 +110,23 @@ rl.prompt();
 
 rl.on('line', (line) => {
     const args = line.trim().split(' ');
+    // Check if user entered a number to open a link
+    if (
+        lastResults.length > 0 &&
+        args.length === 1 &&
+        /^[1-9]$|^10$/.test(args[0])
+    ) {
+        const idx = parseInt(args[0], 10) - 1;
+        if (lastResults[idx]) {
+            console.log(`Opening in browser: ${lastResults[idx].link}`);
+            openInBrowser(lastResults[idx].link);
+        } else {
+            console.log('Invalid selection.');
+        }
+        rl.prompt();
+        return;
+    }
+
     if (args[0] === 'exit') {
         rl.close();
     } else if (args[0] === 'go2web' && args[1] === '-u' && args[2]) {
@@ -88,7 +134,6 @@ rl.on('line', (line) => {
             if (err) {
                 console.error('Error:', err.message);
             } else {
-                // Basic strip HTML tags to print readable text
                 console.log(stripHtml(data));
             }
             rl.prompt();
