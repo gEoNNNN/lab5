@@ -1,3 +1,4 @@
 {
-  "https://example.com": "Example Domain\n\n    \n    \n    \n        \n\n\n\n\n    Example Domain\n    This domain is for use in illustrative examples in documents. You may use this\n    domain in literature without prior coordination or asking for permission.\n    More information..."
+  "https://example.com": "Example Domain\n\n    \n    \n    \n        \n\n\n\n\n    Example Domain\n    This domain is for use in illustrative examples in documents. You may use this\n    domain in literature without prior coordination or asking for permission.\n    More information...",
+  "https://httpbin.org/json": "{\n  \"slideshow\": {\n    \"author\": \"Yours Truly\",\n    \"date\": \"date of publication\",\n    \"slides\": [\n      {\n        \"title\": \"Wake up to WonderWidgets!\",\n        \"type\": \"all\"\n      },\n      {\n        \"items\": [\n          \"Why <em>WonderWidgets</em> are great\",\n          \"Who <em>buys</em> WonderWidgets\"\n        ],\n        \"title\": \"Overview\",\n        \"type\": \"all\"\n      }\n    ],\n    \"title\": \"Sample Slide Show\"\n  }\n}"
 }

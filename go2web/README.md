@@ -1,47 +1,37 @@
-# go2web Command Line Program
+# go2web - Command-Line Web Client (No HTTP Libraries!)
 
-## Overview
-`go2web` is a command line program that allows users to make HTTP requests to specified URLs and search for terms using popular search engines. This tool is designed to be simple and efficient, providing quick access to web resources directly from the terminal.
+A minimalist command-line tool built in Python for performing HTTP requests and web searches using raw sockets—completely bypassing traditional HTTP libraries.
 
-## Installation
-To install `go2web`, clone the repository and install the necessary dependencies:
+## 🔧 Features
 
-```bash
-git clone <repository-url>
-cd go2web
-npm install
-```
+### Core Capabilities
 
-## Usage
-The `go2web` command line program supports the following options:
+- `-u <URL>` — Send HTTP or HTTPS requests and print the response
+- `-s <search-term>` — Perform a web search and list the top 10 results
+- `-h` — Display usage and help information
 
-- `-u <url>`: Make an HTTP GET request to the specified URL.
-- `-s <search-term>`: Search for the specified term using a search engine.
+### What's Included
 
-### Examples
+- Custom-built HTTP/HTTPS support using Python sockets
+- Clean, readable output (HTML is stripped for clarity)
+- Web search powered by Bing with result parsing
+- Support for HTTP redirects
+- Basic content negotiation (HTML and JSON)
+- Local caching of responses for performance
+- Interactive interface for selecting search results
 
-1. **Making an HTTP Request**
-   ```bash
-   node src/go2web.js -u https://example.com
-   ```
+## 🚀 Live Demo
 
-2. **Searching for a Term**
-   ```bash
-   node src/go2web.js -s "OpenAI"
-   ```
+![Demo GIF](/lab5/go2web/gif.gif)
 
-## Help
-To display help information, run the following command:
+## ⚙️ Technical Overview
 
-```bash
-node src/go2web.js --help
-```
+- **Low-Level Networking**: Uses raw sockets to craft HTTP/1.1 requests manually
+- **Secure Connections**: HTTPS handled via Python's `ssl` module
+- **Content Display**:
+  - HTML: Parsed into plain text using `html2text`
+  - JSON: Nicely formatted using `json.dumps(indent=2)`
+- **Caching Layer**: Response data saved in `~/.go2web_cache/` using MD5 hashes of request URLs
+- **Search Engine Integration**: Extracts Bing search results with `BeautifulSoup` and CSS selectors (`li.b_algo`)
 
-## Contributing
-Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
-
-## License
-This project is licensed under the MIT License. See the LICENSE file for details.
-
-## Demo
-![Demo GIF](path/to/demo.gif)
+---
