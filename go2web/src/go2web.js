@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-const https = require('https');
-const http = require('http');
+const net = require('net');
+const tls = require('tls');
 const readline = require('readline');
 const cheerio = require('cheerio');
 const { exec } = require('child_process');
@@ -24,33 +24,71 @@ Commands:
   go2web -h               # show this help
 `;
 
-function fetchUrl(url, callback, redirectCount = 0) {
+// --- REPLACED fetchUrl with raw TCP version ---
+function fetchUrl(rawUrl, callback, redirectCount = 0) {
     const MAX_REDIRECTS = 5;
-    const client = url.startsWith('https') ? https : http;
-    const options = new URL(url);
-    options.headers = { 'Accept': 'application/json, text/html;q=0.9' };
+    try {
+        const url = new URL(rawUrl);
+        const isHttps = url.protocol === 'https:';
+        const port = url.port || (isHttps ? 443 : 80);
+        const host = url.hostname;
+        const path = url.pathname + (url.search || '');
 
-    client.get(options, (res) => {
-        // Handle redirects (3xx status codes)
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            if (redirectCount >= MAX_REDIRECTS) {
-                callback(new Error('Too many redirects'));
+        const request = [
+            `GET ${path} HTTP/1.1`,
+            `Host: ${host}`,
+            'Accept: application/json, text/html;q=0.9',
+            'Connection: close',
+            '',
+            ''
+        ].join('\r\n');
+
+        const onData = (data) => {
+            const response = data.toString();
+            const [header, ...bodyParts] = response.split('\r\n\r\n');
+            const body = bodyParts.join('\r\n\r\n');
+            const statusLine = header.split('\r\n')[0];
+            const statusCode = parseInt(statusLine.split(' ')[1], 10);
+
+            // Handle redirects
+            const locationMatch = header.match(/Location: (.+)/i);
+            if (statusCode >= 300 && statusCode < 400 && locationMatch && redirectCount < MAX_REDIRECTS) {
+                const location = locationMatch[1].trim();
+                const newUrl = location.startsWith('http') ? location : `${url.protocol}//${url.host}${location}`;
+                fetchUrl(newUrl, callback, redirectCount + 1);
                 return;
             }
-            const newUrl = res.headers.location.startsWith('http')
-                ? res.headers.location
-                : new URL(res.headers.location, url).toString();
-            fetchUrl(newUrl, callback, redirectCount + 1);
-            return;
-        }
 
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => callback(null, data, res.headers['content-type']));
-    }).on('error', (err) => {
+            // Get content-type
+            const contentTypeMatch = header.match(/Content-Type: ([^\r\n;]+)/i);
+            const contentType = contentTypeMatch ? contentTypeMatch[1] : '';
+
+            callback(null, body, contentType);
+        };
+
+        const onError = (err) => callback(err);
+
+        let chunks = [];
+        if (isHttps) {
+            const socket = tls.connect(port, host, { servername: host }, () => {
+                socket.write(request);
+            });
+            socket.on('data', chunk => chunks.push(chunk));
+            socket.on('end', () => onData(Buffer.concat(chunks)));
+            socket.on('error', onError);
+        } else {
+            const socket = net.connect(port, host, () => {
+                socket.write(request);
+            });
+            socket.on('data', chunk => chunks.push(chunk));
+            socket.on('end', () => onData(Buffer.concat(chunks)));
+            socket.on('error', onError);
+        }
+    } catch (err) {
         callback(err);
-    });
+    }
 }
+// --- END fetchUrl replacement ---
 
 // Simple function to clean text from HTML tags and CSS
 function stripHtml(html) {
