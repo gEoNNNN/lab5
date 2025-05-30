@@ -22,7 +22,7 @@ A minimalist command-line tool built in Python for performing HTTP requests and 
 
 ## 🚀 Live Demo
 
-![Demo GIF](/lab5/go2web/gif.gif)
+![Demo GIF](go2web/gif.gif)
 
 ## ⚙️ Technical Overview
 
